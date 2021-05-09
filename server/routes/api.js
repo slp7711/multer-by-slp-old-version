@@ -7,10 +7,12 @@ const fs = require('fs')
 const path = require('path')
 require('dotenv').config()
 
+const util = require('util');
+const stream = require('stream');
+
 const Imovel = require('../models/imoveis')
 
 // Making connection to mongoDB
-
 mongoose.connect(process.env.MONGODB_URI, {useNewUrlParser: true, useUnifiedTopology: true});
 
 const db = mongoose.connection;
@@ -57,6 +59,7 @@ router.get('/download/:filename', (req, res) => {
 
 router.post('/profile', upload.single('avatar'), function (req, res) {
 
+
     //Configuring the file name to be saved on db
     const fileName = req.file.filename;
     const extension = req.file.originalname.split('.').pop();
@@ -70,6 +73,7 @@ router.post('/profile', upload.single('avatar'), function (req, res) {
         imageName: fileNameToBeSavedOnDB
     }).then(function(imovel){
         res.send(imovel);
+        console.log('Document created...');
     }).catch(error => {
         console.log(error);
         res.send('Impossible to create document: ' + error)
@@ -91,8 +95,38 @@ router.post('/profile', upload.single('avatar'), function (req, res) {
     
     console.log('The file original name is: ' + req.file.originalname);
     console.log('The file extension is: ' + extension);
-    
-    //Creating a readStream and piping do db
+
+    //We prefer to use the async/await version to upload file to db
+    //We use de nodejs docs, Stream.pipeline instructions and
+    //stackoverflow "Hot to use async/await with streams" to do this.
+    //Why? - Because await the file to be saved on db and after this, delete it on server.
+
+    const pipeline = util.promisify(stream.pipeline);
+
+    async function run() {
+        await pipeline (
+            fs.createReadStream(__dirname + '/../uploads/' + req.file.filename),
+            uploadStream
+        );
+        
+        console.log('Done!!!!', 'The file id is: ' + uploadStream.id);
+        console.log('Done!!!!', 'The file name on db is: ' + uploadStream.filename);
+        console.log('Pipeline succeeded');
+        
+            // Deleting file in the server
+        fs.unlink(__dirname + '/../uploads/' + req.file.filename, (err) => {
+            if (err) {
+                console.log(err)
+            }
+            console.log('File removed from the server!!!')
+            //return
+        }) 
+        
+    }
+
+    run().catch(console.error);
+
+/*     //Creating a readStream and piping do db
     fs.createReadStream(__dirname + '/../uploads/' + req.file.filename)
     .pipe(uploadStream)
     .on('error', () => console.log(error))
@@ -100,16 +134,9 @@ router.post('/profile', upload.single('avatar'), function (req, res) {
         console.log('Done!!!!', 'The file id is: ' + uploadStream.id);
         console.log('Done!!!!', 'The file name on db is: ' + uploadStream.filename);
         // process.exit(0);
-    })
+    }) */
 
-    // Deleting file in the server
-    fs.unlink(__dirname + '/../uploads/' + req.file.filename, (err) => {
-        if (err) {
-            console.log(err)
-        }
-        console.log('File removed from the server!!!')
-        return
-    })
+
 
 });
 

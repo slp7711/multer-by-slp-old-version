@@ -7,7 +7,7 @@ const ImoveisSchema = new mongoose.Schema({
     },
     description: {type: String},
     price: {type: String},
-    imageName: [String]
+    imagesNames: [String]
 })
 
 const Imovel = mongoose.model('imoveis', ImoveisSchema)
